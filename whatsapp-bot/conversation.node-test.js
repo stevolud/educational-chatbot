@@ -88,3 +88,33 @@ test("supports help and clearing an active session", async () => {
   await bot.handleText("learner", "skip");
   assert.match(sent.at(-1).body, /No study session is active/);
 });
+
+test("jumps to a requested question by number and accepts navigation after a reveal", async () => {
+  const { bot, sent } = createHarness();
+  await bot.startSession("learner", "biology.apkg", cards);
+
+  await bot.handleText("learner", "go to number 2");
+  assert.match(sent.at(-1).body, /Question 2\/2/);
+  assert.match(sent.at(-1).body, /Where is ATP produced\?/);
+
+  await bot.handleText("learner", "skip");
+  await bot.handleText("learner", "/go 1");
+  assert.match(sent.at(-1).body, /Question 1\/2/);
+  assert.match(sent.at(-1).body, /What does ATP store\?/);
+});
+
+test("rejects invalid question numbers without changing the current card", async () => {
+  const { bot, sent } = createHarness();
+  await bot.startSession("learner", "biology.apkg", cards);
+
+  await bot.handleText("learner", "go to number 0");
+  assert.match(sent.at(-1).body, /question number from 1 to 2/i);
+  await bot.handleText("learner", "my answer");
+  assert.match(sent.at(-1).body, /Usable energy/);
+});
+
+test("explains that a session is needed before jumping to a question", async () => {
+  const { bot, sent } = createHarness();
+  await bot.handleText("learner", "go to number 1");
+  assert.match(sent.at(-1).body, /No study session is active/);
+});

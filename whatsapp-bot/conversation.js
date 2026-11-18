@@ -4,6 +4,17 @@ function cardAnswer(card) {
   return `*Answer:* ${card.back}${card.extra ? `\n\n*Extra:* ${card.extra}` : ""}`;
 }
 
+function cardNumberFromCommand(text) {
+  const match = text.match(/^\/?go(?:@[a-z0-9_]+)?(?:\s+(?:to(?:\s+number)?|number))?\s+(\d+)$/i);
+  return match ? Number(match[1]) : null;
+}
+
+function isCardNavigationRequest(text) {
+  return /^\/go(?:@[a-z0-9_]+)?(?:\s|$)/i.test(text)
+    || /^go\s+(?:to(?:\s+number)?|number)(?:\s|$)/i.test(text)
+    || /^go\s+\d/i.test(text);
+}
+
 export function createStudyBot({ sendText, gradeAnswer }) {
   const sessions = new Map();
 
@@ -12,7 +23,7 @@ export function createStudyBot({ sendText, gradeAnswer }) {
     session.awaitingNext = false;
     await sendText(
       to,
-      `*Question ${session.index + 1}/${session.cards.length}*\n\n${card.front}\n\nReply with what you remember. I'll wait for your answer before revealing it.`,
+      `*Question ${session.index + 1}/${session.cards.length}*\n\n${card.front}\n\nReply with what you remember. I'll wait for your answer before revealing it. Send *go 5* to jump to a question.`,
     );
   }
 
@@ -32,7 +43,7 @@ export function createStudyBot({ sendText, gradeAnswer }) {
     if (!text || command === "help") {
       await sendText(
         to,
-        `Send a study file (${SUPPORTED_FILES}) to begin. I'll send one question at a time; reply with your answer to see feedback, the correct answer, and any extra notes. Reply *next* for the next question, *repeat* to see the current question or reveal again, *skip* to reveal without answering, or *stop* to end.`,
+        `Send a study file (${SUPPORTED_FILES}) to begin. I'll send one question at a time; reply with your answer to see feedback, the correct answer, and any extra notes. Reply *next* for the next question, *go 5* to jump to question 5, *repeat* to see the current question or reveal again, *skip* to reveal without answering, or *stop* to end.`,
       );
       return;
     }
@@ -44,7 +55,22 @@ export function createStudyBot({ sendText, gradeAnswer }) {
 
     const session = sessions.get(to);
     if (!session) {
-      await handleTextWithoutSession(to, command);
+      if (isCardNavigationRequest(text)) {
+        await sendText(to, `No study session is active. Send a study file (${SUPPORTED_FILES}) before jumping to a question.`);
+      } else {
+        await handleTextWithoutSession(to, command);
+      }
+      return;
+    }
+
+    if (isCardNavigationRequest(text)) {
+      const cardNumber = cardNumberFromCommand(text);
+      if (!Number.isSafeInteger(cardNumber) || cardNumber < 1 || cardNumber > session.cards.length) {
+        await sendText(to, `Choose a question number from 1 to ${session.cards.length}. Use *go 5* or *go to number 5*.`);
+        return;
+      }
+      session.index = cardNumber - 1;
+      await sendQuestion(to, session);
       return;
     }
 
@@ -63,7 +89,7 @@ export function createStudyBot({ sendText, gradeAnswer }) {
         await sendText(to, `${cardAnswer(session.cards[session.index])}\n\nReply *next* for the next question, or *stop* to end.`);
         return;
       }
-      await sendText(to, "I have revealed the answer. Reply *next* when you are ready for the next question, *repeat* to see it again, or *stop* to end.");
+      await sendText(to, "I have revealed the answer. Reply *next* when you are ready for the next question, *go 5* to jump to question 5, *repeat* to see it again, or *stop* to end.");
       return;
     }
 
@@ -84,7 +110,7 @@ export function createStudyBot({ sendText, gradeAnswer }) {
     const response = [
       feedback,
       cardAnswer(card),
-      "Reply *next* for the next question, or *stop* to end.",
+      "Reply *next* for the next question, *go 5* to jump to question 5, or *stop* to end.",
     ].filter(Boolean).join("\n\n");
     await sendText(to, response);
     session.awaitingNext = true;

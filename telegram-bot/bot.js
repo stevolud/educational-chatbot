@@ -1,12 +1,5 @@
-import { createStudyBot } from "../whatsapp-bot/conversation.js";
-import {
-  generateCards,
-  gradeAnswer,
-  MAX_MEDIA_BYTES,
-  parseStudyFile,
-} from "../whatsapp-bot/study-files.js";
-import { createTelegramUpdateHandler } from "./handler.js";
 import { runLongPolling } from "./polling.js";
+import { createStudyUpdateHandler } from "./study-handler.js";
 import { createTelegramApi } from "./telegram-api.js";
 
 async function main() {
@@ -14,24 +7,7 @@ async function main() {
   const telegramBot = await api.call("getMe");
   if (!telegramBot?.username) throw new Error("Telegram did not return this bot's username.");
 
-  const studyBot = createStudyBot({
-    sendText: (chatId, text) => api.sendMessage(Number(chatId), text),
-    gradeAnswer: async (card, answer) => {
-      try {
-        return await gradeAnswer(card, answer);
-      } catch (error) {
-        console.error("Local answer feedback unavailable:", error instanceof Error ? error.message : "unknown error");
-        return "Thanks for trying. Compare your response with the answer below.";
-      }
-    },
-  });
-  const handleUpdate = createTelegramUpdateHandler({
-    api,
-    studyBot,
-    parseStudyFile,
-    generateCards,
-    maxFileBytes: MAX_MEDIA_BYTES,
-  });
+  const handleUpdate = createStudyUpdateHandler(api);
 
   const shutdown = new AbortController();
   const stop = () => shutdown.abort();

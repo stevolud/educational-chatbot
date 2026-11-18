@@ -1,13 +1,16 @@
 services:
-  - type: worker
+  - type: web
     name: stevolud-bot
     runtime: node
-    plan: starter
+    plan: free
     buildCommand: npm install --prefix whatsapp-bot
-    startCommand: node telegram-bot/bot.js
+    startCommand: node telegram-bot/webhook-server.js
+    healthCheckPath: /health
     autoDeploy: true
     envVars:
-      - key: 9267037407:AAEfIlwFpfDdcVIOGfKnEImCZtjRsusmEmk
+      - key: TELEGRAM_BOT_TOKEN
         sync: false
-      - key: http://127.0.0.1:11434/v1
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: LOCAL_LLM_BASE_URL
         sync: false

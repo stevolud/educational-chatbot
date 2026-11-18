@@ -7,7 +7,7 @@ This service connects Recall's flashcard workflow to the WhatsApp Cloud API. Sen
 - Anki `.apkg` packages, CSV and Excel `.xlsx` files with question/answer (or front/back) columns use their existing cards directly.
 - PDF, Word, and readable tables without question/answer columns can be turned into up to 15 recall questions by a local Ollama model.
 - Answers include the card's extra/explanation field when one exists. `skip` reveals the answer and extra without grading.
-- `next` or `continue` advances after the reveal; `repeat` repeats the current question or reveal; `stop`, `reset`, or `cancel` ends the session; `help` explains the flow.
+- `next` or `continue` advances after the reveal; `go 5` or `go to number 5` jumps to a question; `repeat` repeats the current question or reveal; `stop`, `reset`, or `cancel` ends the session; `help` explains the flow.
 
 Anki files are read locally by the service. They are not sent to the model. The model receives source text only when it needs to generate questions, and receives the active question, expected answer, and learner's reply to provide feedback.
 
