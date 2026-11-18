@@ -1,0 +1,25 @@
+{
+  "name": "recall-whatsapp-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test conversation.node-test.js study-files.node-test.js webhook-security.node-test.js webhook.node-test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "adm-zip": "^0.6.1",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "fzstd": "^0.1.1",
+    "jszip": "^3.10.1",
+    "mammoth": "^1.9.1",
+    "officeparser": "^8.2.0",
+    "sql.js": "^1.13.0",
+    "word-extractor": "^1.0.4"
+  }
+}
