@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 import { pathToFileURL } from "node:url";
+import { createPostgresFileCatalog } from "./postgres-file-catalog.js";
 import { createStudyUpdateHandler } from "./study-handler.js";
 import { createTelegramApi } from "./telegram-api.js";
 
@@ -225,12 +226,18 @@ async function main() {
 
   const telegramBot = await api.call("getMe");
   if (!telegramBot?.username) throw new Error("Telegram did not return this bot's username.");
+  const fileCatalog = await createPostgresFileCatalog(process.env.DATABASE_URL);
 
   const server = createTelegramWebhookServer({
-    handleUpdate: createStudyUpdateHandler(api),
+    handleUpdate: createStudyUpdateHandler(api, fileCatalog),
     secretToken,
   });
-  await listen(server, port);
+  try {
+    await listen(server, port);
+  } catch (error) {
+    await fileCatalog.close();
+    throw error;
+  }
 
   try {
     await api.call("setWebhook", {
@@ -241,16 +248,28 @@ async function main() {
     });
   } catch (error) {
     await new Promise((resolve) => server.close(resolve));
+    await fileCatalog.close();
     throw error;
   }
 
   console.log(`Recall Telegram bot @${telegramBot.username} webhook is listening at ${webhookUrl}.`);
-  const stop = () => server.close((error) => {
-    if (error) {
-      console.error("Could not close Telegram webhook server:", error.message);
-      process.exitCode = 1;
-    }
-  });
+  let stopping = false;
+  const stop = () => {
+    if (stopping) return;
+    stopping = true;
+    server.close(async (error) => {
+      try {
+        await fileCatalog.close();
+      } catch (closeError) {
+        console.error("Could not close the Telegram file library:", closeError.message);
+        process.exitCode = 1;
+      }
+      if (error) {
+        console.error("Could not close Telegram webhook server:", error.message);
+        process.exitCode = 1;
+      }
+    });
+  };
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
 }

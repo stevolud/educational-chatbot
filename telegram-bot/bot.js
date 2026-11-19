@@ -1,4 +1,5 @@
 import { runLongPolling } from "./polling.js";
+import { createMemoryFileCatalog } from "./file-catalog.js";
 import { createStudyUpdateHandler } from "./study-handler.js";
 import { createTelegramApi } from "./telegram-api.js";
 
@@ -7,7 +8,8 @@ async function main() {
   const telegramBot = await api.call("getMe");
   if (!telegramBot?.username) throw new Error("Telegram did not return this bot's username.");
 
-  const handleUpdate = createStudyUpdateHandler(api);
+  const fileCatalog = createMemoryFileCatalog();
+  const handleUpdate = createStudyUpdateHandler(api, fileCatalog);
 
   const shutdown = new AbortController();
   const stop = () => shutdown.abort();

@@ -6,7 +6,7 @@ The Telegram bot provides the same active-recall flow as Recall's WhatsApp bot. 
 
 - Anki `.apkg` packages, CSV, and Excel `.xlsx` files with question/answer or front/back columns use their existing cards directly.
 - PDF, Word, and readable tables without question/answer columns can be turned into up to 15 recall questions by a local Ollama model.
-- `skip` reveals the answer and extra notes without feedback. `repeat` repeats the current question or reveal. Use `go 5` or `go to number 5` to jump directly to a question. `help`, `next`, `stop`, and `/start` are supported.
+- `skip` reveals the answer and extra notes without feedback. `repeat` repeats the current question or reveal. Use `go 5` or `go to number 5` to jump directly to a question. Use `/files` to list saved uploads, `/use 1` to choose one, `/tag 1 biology` to give a file a unique tag, or `/load biology` to open it by tag. Send a new document or use `/upload` to add another file.
 - Only private Telegram chats are supported so conversations do not expose study answers to group members.
 
 The file parsers and study conversation are shared with [Recall WhatsApp](../whatsapp-bot/README.md). Files are processed by the bot host. Anki cards are not sent to Ollama; document text is sent to Ollama only when generating questions, and the active question/answer plus learner reply are used for feedback.
@@ -54,12 +54,12 @@ Local `npm start` uses Telegram long polling. The Render deployment uses a webho
 The root `render.yaml` configures a Render Free Web Service with a Telegram webhook and a `/health` endpoint.
 
 1. Push this repository to GitHub and in Render choose **New > Blueprint**, then select the repository and the branch containing `render.yaml`.
-2. Provide `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, and `LOCAL_LLM_BASE_URL` in Render's environment setup. Generate a random secret for `TELEGRAM_WEBHOOK_SECRET` (letters, numbers, `_` and `-` only; 32 random bytes in hex is suitable). Use a trusted, network-accessible Ollama endpoint with the OpenAI-compatible API, usually ending in `/v1`. Never put these values in source control or chat.
+2. Provide `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, and `LOCAL_LLM_BASE_URL` in Render's environment setup. The Blueprint provisions a free PostgreSQL database and supplies its `DATABASE_URL` automatically. Generate a random secret for `TELEGRAM_WEBHOOK_SECRET` (letters, numbers, `_` and `-` only; 32 random bytes in hex is suitable). Use a trusted, network-accessible Ollama endpoint with the OpenAI-compatible API, usually ending in `/v1`. Never put secrets in source control or chat.
 3. Ensure the Ollama endpoint has the model named by `LOCAL_LLM_MODEL` (defaults to `gemma4:e2b`). Render runs the bot, not Ollama; do not expose an unauthenticated Ollama server to the public internet.
 4. Create the Blueprint and check the service's **Logs**. The server registers its webhook with Telegram at startup. Stop any other long-polling instance using the same bot token. The Blueprint enables automatic deploys from the connected branch.
 
-Render Free Web Services sleep after 15 minutes without inbound traffic. Telegram webhook traffic can wake the service, but the first update after idle can be delayed by a cold start. This is not an always-on 24/7 service. Active study sessions are stored in memory and clear when Render sleeps, restarts, or deploys.
+Render Free Web Services sleep after 15 minutes without inbound traffic. Telegram webhook traffic can wake the service, but the first update after idle can be delayed by a cold start. This is not an always-on 24/7 service. Active study sessions are stored in memory and clear when Render sleeps, restarts, or deploys. The file library stores only each private chat's filename and Telegram file ID; Telegram retains the actual uploaded file. Render Free PostgreSQL expires after 30 days, so the saved-file library is temporary unless you move `DATABASE_URL` to a durable database plan.
 
 The bot accepts files up to 20 MB. Anki collection databases are limited to 100 MB, source text for question generation to 50,000 characters, and generated question sets to 15 cards. Scanned image-only PDFs need OCR before they can be used.
 
-Active study sessions are stored in memory and clear when the process restarts. Use only one running bot instance for each token, whether using local polling or the Render webhook.
+Local polling keeps the file library in memory until the process exits. The Render webhook uses PostgreSQL so saved uploads remain available across service sleeps and deploys while the database exists. Use only one running bot instance for each token, whether using local polling or the Render webhook.

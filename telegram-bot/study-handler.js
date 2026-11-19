@@ -7,7 +7,7 @@ import {
 } from "../whatsapp-bot/study-files.js";
 import { createTelegramUpdateHandler } from "./handler.js";
 
-export function createStudyUpdateHandler(api) {
+export function createStudyUpdateHandler(api, fileCatalog) {
   const studyBot = createStudyBot({
     sendText: (chatId, text) => api.sendMessage(Number(chatId), text),
     gradeAnswer: async (card, answer) => {
@@ -23,6 +23,7 @@ export function createStudyUpdateHandler(api) {
   return createTelegramUpdateHandler({
     api,
     studyBot,
+    fileCatalog,
     parseStudyFile,
     generateCards,
     maxFileBytes: MAX_MEDIA_BYTES,

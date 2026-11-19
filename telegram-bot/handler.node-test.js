@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createStudyBot } from "../whatsapp-bot/conversation.js";
+import { createMemoryFileCatalog } from "./file-catalog.js";
 import { createTelegramUpdateHandler } from "./handler.js";
 
 function createHarness() {
   const sent = [];
   const gradeCalls = [];
   const fileCalls = [];
+  const fileCatalog = createMemoryFileCatalog();
   const api = {
     sendMessage: async (chatId, text) => sent.push({ chatId, text }),
     getFile: async (fileId) => {
@@ -28,6 +30,7 @@ function createHarness() {
   const handleUpdate = createTelegramUpdateHandler({
     api,
     studyBot,
+    fileCatalog,
     parseStudyFile: async (buffer, filename) => {
       if (filename !== "biology.csv") {
         throw new Error("Send an .apkg, .pdf, .xlsx, .csv, .docx or .doc file.");
@@ -43,7 +46,7 @@ function createHarness() {
     maxFileBytes: 20 * 1024 * 1024,
     logger: { error() {} },
   });
-  return { handleUpdate, sent, gradeCalls, fileCalls };
+  return { handleUpdate, sent, gradeCalls, fileCalls, fileCatalog };
 }
 
 function privateDocumentUpdate(fileSize = 30) {
@@ -153,6 +156,7 @@ test("generates recall cards from a document without imported cards", async () =
       },
       handleText: (...args) => studyBot.handleText(...args),
     },
+    fileCatalog: createMemoryFileCatalog(),
     parseStudyFile: async () => ({ cards: [], text: "Extracted cell notes" }),
     generateCards: async (text, filename) => {
       generated.push({ text, filename });
@@ -172,4 +176,118 @@ test("generates recall cards from a document without imported cards", async () =
     },
   ]);
   assert.match(sent.at(-1).text, /Question 1\/1/);
+});
+
+test("lists saved uploads and lets the same private chat study a selected file", async () => {
+  const { handleUpdate, sent, fileCalls } = createHarness();
+  await handleUpdate(privateDocumentUpdate());
+
+  await handleUpdate({
+    message: {
+      chat: { id: 12345, type: "private" },
+      from: { id: 12345 },
+      text: "/files",
+    },
+  });
+  assert.match(sent.at(-1).text, /1\. biology\.csv/);
+  assert.match(sent.at(-1).text, /\/use <number>/);
+
+  await handleUpdate({
+    message: {
+      chat: { id: 12345, type: "private" },
+      from: { id: 12345 },
+      text: "/use 1",
+    },
+  });
+  assert.deepEqual(fileCalls, [
+    ["getFile", "file-1"],
+    ["downloadFile", "documents/study.csv", 20 * 1024 * 1024],
+    ["getFile", "file-1"],
+    ["downloadFile", "documents/study.csv", 20 * 1024 * 1024],
+  ]);
+  assert.match(sent.at(-1).text, /Question 1\/1/);
+});
+
+test("keeps the saved file list private to its Telegram chat", async () => {
+  const { handleUpdate, sent } = createHarness();
+  await handleUpdate(privateDocumentUpdate());
+  await handleUpdate({
+    message: {
+      chat: { id: 67890, type: "private" },
+      from: { id: 67890 },
+      text: "/files",
+    },
+  });
+  assert.match(sent.at(-1).text, /no saved study files/i);
+  assert.doesNotMatch(sent.at(-1).text, /biology\.csv/);
+});
+
+test("offers upload instructions and rejects a missing saved-file selection", async () => {
+  const { handleUpdate, sent } = createHarness();
+  await handleUpdate({
+    message: {
+      chat: { id: 12345, type: "private" },
+      from: { id: 12345 },
+      text: "/upload",
+    },
+  });
+  assert.match(sent.at(-1).text, /Send a study file/);
+
+  await handleUpdate({
+    message: {
+      chat: { id: 12345, type: "private" },
+      from: { id: 12345 },
+      text: "/use 1",
+    },
+  });
+  assert.match(sent.at(-1).text, /not in your library/);
+});
+
+test("tags an uploaded file and loads it by its unique alias", async () => {
+  const { handleUpdate, sent, fileCalls } = createHarness();
+  await handleUpdate(privateDocumentUpdate());
+
+  await handleUpdate({
+    message: {
+      chat: { id: 12345, type: "private" },
+      from: { id: 12345 },
+      text: "/tag 1 biology",
+    },
+  });
+  assert.match(sent.at(-1).text, /tagged.*biology.*\/load biology/i);
+
+  await handleUpdate({
+    message: {
+      chat: { id: 12345, type: "private" },
+      from: { id: 12345 },
+      text: "/files",
+    },
+  });
+  assert.match(sent.at(-1).text, /\[biology\]/);
+
+  await handleUpdate({
+    message: {
+      chat: { id: 12345, type: "private" },
+      from: { id: 12345 },
+      text: "/load BIOLOGY",
+    },
+  });
+  assert.match(sent.at(-1).text, /Question 1\/1/);
+  assert.equal(fileCalls.filter(([method]) => method === "getFile").length, 2);
+});
+
+test("rejects a tag already assigned to another file", async () => {
+  const { handleUpdate, sent, fileCatalog } = createHarness();
+  await fileCatalog.saveFile({ chatId: "12345", fileId: "first", fileName: "first.csv", fileSize: 10 });
+  await fileCatalog.saveFile({ chatId: "12345", fileId: "second", fileName: "second.csv", fileSize: 20 });
+  await fileCatalog.tagFile("12345", 1, "biology");
+
+  await handleUpdate({
+    message: {
+      chat: { id: 12345, type: "private" },
+      from: { id: 12345 },
+      text: "/tag 2 BIOLOGY",
+    },
+  });
+  assert.match(sent.at(-1).text, /already assigned/i);
 });
