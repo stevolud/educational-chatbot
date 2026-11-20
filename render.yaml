@@ -15,12 +15,4 @@ services:
       - key: LOCAL_LLM_BASE_URL
         sync: false
       - key: DATABASE_URL
-        fromDatabase:
-          name: stevolud-bot-library
-          property: connectionString
-
-databases:
-  - name: stevolud-bot-library
-    databaseName: stevolud_bot_library
-    user: stevolud_bot
-    plan: free
+        sync: false
