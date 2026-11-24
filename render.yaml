@@ -3,6 +3,7 @@ services:
     name: stevolud-bot
     runtime: node
     plan: free
+    rootDir: .
     buildCommand: npm install --prefix whatsapp-bot && npm ci --prefix telegram-bot
     startCommand: node telegram-bot/webhook-server.js
     healthCheckPath: /health
@@ -28,6 +29,7 @@ services:
   #   name: stevolud-bot-2
   #   runtime: node
   #   plan: free
+  #   rootDir: .
   #   buildCommand: npm install --prefix whatsapp-bot && npm ci --prefix telegram-bot
   #   startCommand: node telegram-bot/webhook-server.js
   #   healthCheckPath: /health
