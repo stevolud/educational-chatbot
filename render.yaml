@@ -14,5 +14,32 @@ services:
         sync: false
       - key: LOCAL_LLM_BASE_URL
         sync: false
+      - key: LOCAL_LLM_MODEL
+        sync: false
       - key: DATABASE_URL
         sync: false
+
+  # To connect another Telegram bot from the same repository, add another web
+  # service with a unique name and its own Render environment values. Create a
+  # separate bot token and webhook secret for that bot; do not reuse the token
+  # from another running instance. Use a separate DATABASE_URL if you want each
+  # bot's saved file library/tags isolated.
+  # - type: web
+  #   name: stevolud-bot-2
+  #   runtime: node
+  #   plan: free
+  #   buildCommand: npm install --prefix whatsapp-bot && npm ci --prefix telegram-bot
+  #   startCommand: node telegram-bot/webhook-server.js
+  #   healthCheckPath: /health
+  #   autoDeploy: true
+  #   envVars:
+  #     - key: TELEGRAM_BOT_TOKEN
+  #       sync: false
+  #     - key: TELEGRAM_WEBHOOK_SECRET
+  #       sync: false
+  #     - key: LOCAL_LLM_BASE_URL
+  #       sync: false
+  #     - key: LOCAL_LLM_MODEL
+  #       sync: false
+  #     - key: DATABASE_URL
+  #       sync: false
