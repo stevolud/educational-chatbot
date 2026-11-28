@@ -189,6 +189,9 @@ export function createApp({ env = process.env, onMessage = handleMessage, logger
     let modelAvailable = false;
     try {
       const response = await fetch(`${LOCAL_LLM_BASE_URL}/models`, {
+        headers: process.env.LOCAL_LLM_API_KEY?.trim()
+          ? { Authorization: `Bearer ${process.env.LOCAL_LLM_API_KEY.trim()}` }
+          : {},
         signal: AbortSignal.timeout(3000),
       });
       if (response.ok) {

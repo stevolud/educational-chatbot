@@ -26,7 +26,7 @@ WhatsApp Cloud API requires an internet connection and cannot receive or send me
 ## Configure and run
 
 1. Copy `.env.example` to `.env`. Fill in the WhatsApp Cloud API token, phone number ID, webhook verification token, Meta app secret, and a Graph API version enabled for your Meta app. Keep `.env` private.
-2. Set `LOCAL_LLM_BASE_URL` and `LOCAL_LLM_MODEL` if Ollama is not at its default OpenAI-compatible endpoint (`http://127.0.0.1:11434/v1`) or you installed a different model.
+2. Set `LOCAL_LLM_BASE_URL` and `LOCAL_LLM_MODEL` if Ollama is not at its default OpenAI-compatible endpoint (`http://127.0.0.1:11434/v1`) or you installed a different model. For an OpenAI-compatible endpoint requiring Bearer authentication, set `LOCAL_LLM_API_KEY`; the key is sent in the Authorization header and should be kept secret.
 3. Install dependencies and run the checks:
 
    ```sh

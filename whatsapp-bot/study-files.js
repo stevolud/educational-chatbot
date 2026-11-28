@@ -440,7 +440,12 @@ async function localChat(messages, format) {
   try {
     response = await fetch(`${LOCAL_LLM_BASE_URL}/chat/completions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(process.env.LOCAL_LLM_API_KEY?.trim()
+          ? { Authorization: `Bearer ${process.env.LOCAL_LLM_API_KEY.trim()}` }
+          : {}),
+      },
       body: JSON.stringify({
         model: LOCAL_LLM_MODEL,
         messages,
@@ -451,7 +456,7 @@ async function localChat(messages, format) {
     });
   } catch {
     throw new Error(
-      `The local model server is unavailable at ${LOCAL_LLM_BASE_URL}. Start Ollama and make sure the selected model is installed.`,
+      `The model server is unavailable at ${LOCAL_LLM_BASE_URL}. Verify the endpoint is reachable from the bot and the selected model is available.`,
     );
   }
   if (!response.ok) {

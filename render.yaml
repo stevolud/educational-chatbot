@@ -17,6 +17,8 @@ services:
         sync: false
       - key: LOCAL_LLM_MODEL
         sync: false
+      - key: LOCAL_LLM_API_KEY
+        sync: false
       - key: DATABASE_URL
         sync: false
 
@@ -42,6 +44,8 @@ services:
   #     - key: LOCAL_LLM_BASE_URL
   #       sync: false
   #     - key: LOCAL_LLM_MODEL
+  #       sync: false
+  #     - key: LOCAL_LLM_API_KEY
   #       sync: false
   #     - key: DATABASE_URL
   #       sync: false

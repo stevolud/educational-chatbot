@@ -41,6 +41,34 @@ test("verifies Meta webhook subscription challenge tokens", async (t) => {
   assert.equal(rejected.status, 403);
 });
 
+test("uses the optional model API key for the model health check", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const originalApiKey = process.env.LOCAL_LLM_API_KEY;
+  let request;
+  globalThis.fetch = async (url, options) => {
+    request = { url, headers: options.headers };
+    return {
+      ok: true,
+      json: async () => ({ data: [{ id: "gemma4:e2b" }] }),
+    };
+  };
+  process.env.LOCAL_LLM_API_KEY = "test-api-key";
+
+  try {
+    const baseUrl = await createTestServer(t);
+    const response = await originalFetch(`${baseUrl}/health`);
+    const health = await response.json();
+
+    assert.equal(health.modelServerAvailable, true);
+    assert.equal(health.modelAvailable, true);
+    assert.equal(request.headers.Authorization, "Bearer test-api-key");
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalApiKey === undefined) delete process.env.LOCAL_LLM_API_KEY;
+    else process.env.LOCAL_LLM_API_KEY = originalApiKey;
+  }
+});
+
 test("rejects unsigned webhooks and processes a valid message only once", async (t) => {
   const secret = "test-secret";
   const processed = [];

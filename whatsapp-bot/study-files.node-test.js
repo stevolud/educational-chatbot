@@ -20,14 +20,16 @@ async function workbook({ worksheet, sharedStrings }) {
 
 test("sends tutor questions to Ollama with only the supplied unrevealed card context", async () => {
   const originalFetch = globalThis.fetch;
+  const originalApiKey = process.env.LOCAL_LLM_API_KEY;
   let request;
   globalThis.fetch = async (url, options) => {
-    request = { url, body: JSON.parse(options.body) };
+    request = { url, headers: options.headers, body: JSON.parse(options.body) };
     return {
       ok: true,
       json: async () => ({ choices: [{ message: { content: "Think about the molecule's role." } }] }),
     };
   };
+  process.env.LOCAL_LLM_API_KEY = "test-api-key";
 
   try {
     const answer = await answerTutorQuestion("What does store mean?", {
@@ -37,6 +39,7 @@ test("sends tutor questions to Ollama with only the supplied unrevealed card con
 
     assert.equal(answer, "Think about the molecule's role.");
     assert.match(request.url, /\/chat\/completions$/);
+    assert.equal(request.headers.Authorization, "Bearer test-api-key");
     const systemPrompt = request.body.messages.find((message) => message.role === "system").content;
     const userPayload = JSON.parse(request.body.messages.find((message) => message.role === "user").content);
     assert.match(systemPrompt, /do not state or directly give the expected answer/i);
@@ -46,6 +49,8 @@ test("sends tutor questions to Ollama with only the supplied unrevealed card con
     });
   } finally {
     globalThis.fetch = originalFetch;
+    if (originalApiKey === undefined) delete process.env.LOCAL_LLM_API_KEY;
+    else process.env.LOCAL_LLM_API_KEY = originalApiKey;
   }
 });
 
