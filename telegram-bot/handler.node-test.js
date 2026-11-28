@@ -7,6 +7,7 @@ import { createTelegramUpdateHandler } from "./handler.js";
 function createHarness() {
   const sent = [];
   const gradeCalls = [];
+  const tutorQuestions = [];
   const fileCalls = [];
   const fileCatalog = createMemoryFileCatalog();
   const api = {
@@ -25,6 +26,10 @@ function createHarness() {
     gradeAnswer: async (card, answer) => {
       gradeCalls.push({ card, answer });
       return "Good effort.";
+    },
+    askTutor: async (question, context) => {
+      tutorQuestions.push({ question, context });
+      return "Tutor clarification.";
     },
   });
   const handleUpdate = createTelegramUpdateHandler({
@@ -46,7 +51,7 @@ function createHarness() {
     maxFileBytes: 20 * 1024 * 1024,
     logger: { error() {} },
   });
-  return { handleUpdate, sent, gradeCalls, fileCalls, fileCatalog };
+  return { handleUpdate, sent, gradeCalls, tutorQuestions, fileCalls, fileCatalog };
 }
 
 function privateDocumentUpdate(fileSize = 30) {
@@ -104,6 +109,47 @@ test("handles Telegram commands addressed to the bot and ends the session", asyn
     },
   });
   assert.match(sent.at(-1).text, /session cleared/i);
+});
+
+test("routes /ask to Ollama without treating it as a recall answer", async () => {
+  const { handleUpdate, sent, gradeCalls, tutorQuestions } = createHarness();
+  await handleUpdate(privateDocumentUpdate());
+  await handleUpdate({
+    message: {
+      chat: { id: 12345, type: "private" },
+      from: { id: 12345 },
+      text: "/ask@RecallTutorBot Can you clarify the word ATP?",
+    },
+  });
+
+  assert.equal(gradeCalls.length, 0);
+  assert.deepEqual(tutorQuestions, [{
+    question: "Can you clarify the word ATP?",
+    context: { question: "What is ATP?", answerRevealed: false },
+  }]);
+  assert.match(sent.at(-1).text, /Tutor clarification/);
+});
+
+test("allows general /ask questions without a study session and validates empty requests", async () => {
+  const { handleUpdate, sent, tutorQuestions } = createHarness();
+  await handleUpdate({
+    message: {
+      chat: { id: 12345, type: "private" },
+      from: { id: 12345 },
+      text: "/ask What is active recall?",
+    },
+  });
+  assert.deepEqual(tutorQuestions, [{ question: "What is active recall?", context: null }]);
+  assert.match(sent.at(-1).text, /Tutor clarification/);
+
+  await handleUpdate({
+    message: {
+      chat: { id: 12345, type: "private" },
+      from: { id: 12345 },
+      text: "/ask",
+    },
+  });
+  assert.match(sent.at(-1).text, /Use \/ask <your question>/);
 });
 
 test("does not download oversized documents and requires private chats", async () => {

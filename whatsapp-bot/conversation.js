@@ -15,12 +15,13 @@ function isCardNavigationRequest(text) {
     || /^go\s+\d/i.test(text);
 }
 
-export function createStudyBot({ sendText, gradeAnswer }) {
+export function createStudyBot({ sendText, gradeAnswer, askTutor }) {
   const sessions = new Map();
 
   async function sendQuestion(to, session) {
     const card = session.cards[session.index];
     session.awaitingNext = false;
+    session.lastAnswer = null;
     await sendText(
       to,
       `*Question ${session.index + 1}/${session.cards.length}*\n\n${card.front}\n\nReply with what you remember. I'll wait for your answer before revealing it. Send *go 5* to jump to a question.`,
@@ -35,6 +36,36 @@ export function createStudyBot({ sendText, gradeAnswer }) {
     sessions.set(to, session);
     await sendText(to, `Ready: *${cards.length} questions* from ${name}. I'll show one at a time.`);
     await sendQuestion(to, session);
+  }
+
+  async function askQuestion(to, question) {
+    const text = typeof question === "string" ? question.trim() : "";
+    if (!text) {
+      await sendText(to, "Use /ask <your question> to ask the tutor.");
+      return;
+    }
+    if (typeof askTutor !== "function") {
+      await sendText(to, "Tutor questions are not configured in this chat.");
+      return;
+    }
+
+    const session = sessions.get(to);
+    const card = session?.cards[session.index];
+    const context = card
+      ? {
+          question: card.front,
+          answerRevealed: session.awaitingNext,
+          ...(session.awaitingNext
+            ? {
+                answer: card.back,
+                extra: card.extra,
+                learnerAnswer: session.lastAnswer,
+              }
+            : {}),
+        }
+      : null;
+    const answer = await askTutor(text, context);
+    await sendText(to, answer);
   }
 
   async function handleText(to, body) {
@@ -113,6 +144,7 @@ export function createStudyBot({ sendText, gradeAnswer }) {
       "Reply *next* for the next question, *go 5* to jump to question 5, or *stop* to end.",
     ].filter(Boolean).join("\n\n");
     await sendText(to, response);
+    session.lastAnswer = command === "skip" ? null : text;
     session.awaitingNext = true;
   }
 
@@ -124,5 +156,5 @@ export function createStudyBot({ sendText, gradeAnswer }) {
     await sendText(to, `I’m ready when you are. Send a study file (${SUPPORTED_FILES}) to begin.`);
   }
 
-  return { handleText, startSession };
+  return { askQuestion, handleText, startSession };
 }

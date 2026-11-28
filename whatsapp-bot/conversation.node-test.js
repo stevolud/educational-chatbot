@@ -9,11 +9,16 @@ const cards = [
 
 function createHarness() {
   const sent = [];
+  const tutorQuestions = [];
   const bot = createStudyBot({
     sendText: async (to, body) => sent.push({ to, body }),
     gradeAnswer: async (_card, answer) => `Feedback on: ${answer}`,
+    askTutor: async (question, context) => {
+      tutorQuestions.push({ question, context });
+      return "Tutor clarification.";
+    },
   });
-  return { bot, sent };
+  return { bot, sent, tutorQuestions };
 }
 
 test("sends one WhatsApp question and waits before revealing its answer and extra", async () => {
@@ -117,4 +122,48 @@ test("explains that a session is needed before jumping to a question", async () 
   const { bot, sent } = createHarness();
   await bot.handleText("learner", "go to number 1");
   assert.match(sent.at(-1).body, /No study session is active/);
+});
+
+test("asks the tutor with only the unrevealed question, then provides answer context after reveal", async () => {
+  const { bot, sent, tutorQuestions } = createHarness();
+  await bot.startSession("learner", "biology.apkg", cards);
+
+  await bot.askQuestion("learner", "What does 'store' mean here?");
+  assert.deepEqual(tutorQuestions[0], {
+    question: "What does 'store' mean here?",
+    context: {
+      question: "What does ATP store?",
+      answerRevealed: false,
+    },
+  });
+  assert.match(sent.at(-1).body, /Tutor clarification/);
+
+  await bot.handleText("learner", "Energy for cell processes");
+  await bot.askQuestion("learner", "Can you explain my answer?");
+  assert.deepEqual(tutorQuestions[1], {
+    question: "Can you explain my answer?",
+    context: {
+      question: "What does ATP store?",
+      answerRevealed: true,
+      answer: "Usable energy.",
+      extra: "Cells use ATP to power processes.",
+      learnerAnswer: "Energy for cell processes",
+    },
+  });
+});
+
+test("asks Ollama general tutor questions without an active study session", async () => {
+  const { bot, sent, tutorQuestions } = createHarness();
+  await bot.askQuestion("learner", "What is active recall?");
+
+  assert.deepEqual(tutorQuestions, [{ question: "What is active recall?", context: null }]);
+  assert.match(sent.at(-1).body, /Tutor clarification/);
+});
+
+test("prompts for a question when the tutor command has no text", async () => {
+  const { bot, sent, tutorQuestions } = createHarness();
+  await bot.askQuestion("learner", "   ");
+
+  assert.equal(tutorQuestions.length, 0);
+  assert.match(sent.at(-1).body, /Use \/ask <your question>/);
 });

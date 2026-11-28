@@ -186,7 +186,10 @@ export function createTelegramUpdateHandler({
       const command = telegramCommand(message.text);
       if (command === "start") {
         await studyBot.handleText(String(chatId), "help");
-        await api.sendMessage(chatId, "Use /files to browse saved uploads, /use 1 to study a listed file, /tag 1 biology to label one, /load biology to open it by tag, or /upload to add a new file.");
+        await api.sendMessage(chatId, "Use /ask <question> to ask Ollama about the current card (or ask a general question outside a study session). Use /files to browse saved uploads, /use 1 to study a listed file, /tag 1 biology to label one, /load biology to open it by tag, or /upload to add a new file.");
+      } else if (command === "ask") {
+        const match = message.text.trim().match(/^\/ask(?:@[a-z0-9_]+)?(?:\s+([\s\S]+))?$/i);
+        await studyBot.askQuestion(String(chatId), match?.[1] || "");
       } else if (command === "files" || command === "library") {
         const match = message.text.trim().match(/^\/(?:files|library)(?:@[a-z0-9_]+)?(?:\s+(\d+))?$/i);
         const page = match?.[1] ? Number(match[1]) : 1;
@@ -208,7 +211,7 @@ export function createTelegramUpdateHandler({
         await api.sendMessage(chatId, "Send a study file as a document to add it to your library and start studying.");
       } else if (command === "help") {
         await studyBot.handleText(String(chatId), "help");
-        await api.sendMessage(chatId, "Use /files to browse saved uploads, /use 1 to study a listed file, /tag 1 biology to label one, /load biology to open it by tag, or /upload to add a new file.");
+        await api.sendMessage(chatId, "Use /ask <question> to ask Ollama about the current card (or ask a general question outside a study session). Use /files to browse saved uploads, /use 1 to study a listed file, /tag 1 biology to label one, /load biology to open it by tag, or /upload to add a new file.");
       } else if (command && ["next", "continue", "skip", "repeat", "stop", "reset", "cancel"].includes(command)) {
         await studyBot.handleText(String(chatId), command);
       } else {

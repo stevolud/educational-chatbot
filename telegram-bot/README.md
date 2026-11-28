@@ -6,10 +6,10 @@ The Telegram bot provides the same active-recall flow as Recall's WhatsApp bot. 
 
 - Anki `.apkg` packages, CSV, and Excel `.xlsx` files with question/answer or front/back columns use their existing cards directly.
 - PDF, Word, and readable tables without question/answer columns can be turned into up to 15 recall questions by a local Ollama model.
-- `skip` reveals the answer and extra notes without feedback. `repeat` repeats the current question or reveal. Use `go 5` or `go to number 5` to jump directly to a question. Use `/files` to list saved uploads, `/use 1` to choose one, `/tag 1 biology` to give a file a unique tag, or `/load biology` to open it by tag. Send a new document or use `/upload` to add another file.
+- `skip` reveals the answer and extra notes without feedback. `repeat` repeats the current question or reveal. Use `go 5` or `go to number 5` to jump directly to a question. Use `/ask <question>` to ask Ollama for clarification about the current card; before reveal, it gets only the question so it can clarify or offer a hint without seeing the answer. After reveal, it can explain the answer, extra notes, and your submitted response. `/ask` also supports general tutor questions outside a study session. Use `/files` to list saved uploads, `/use 1` to choose one, `/tag 1 biology` to give a file a unique tag, or `/load biology` to open it by tag. Send a new document or use `/upload` to add another file.
 - Only private Telegram chats are supported so conversations do not expose study answers to group members.
 
-The file parsers and study conversation are shared with [Recall WhatsApp](../whatsapp-bot/README.md). Files are processed by the bot host. Anki cards are not sent to Ollama; document text is sent to Ollama only when generating questions, and the active question/answer plus learner reply are used for feedback.
+The file parsers and study conversation are shared with [Recall WhatsApp](../whatsapp-bot/README.md). Files are processed by the bot host. Anki cards are not sent to Ollama during import; document text is sent to Ollama only when generating questions, and the active question/answer plus learner reply are used for feedback or when you explicitly ask the tutor for clarification.
 
 ## Requirements
 

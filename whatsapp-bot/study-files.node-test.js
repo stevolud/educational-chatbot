@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import JSZip from "jszip";
-import { parseStudyFile } from "./study-files.js";
+import { answerTutorQuestion, parseStudyFile } from "./study-files.js";
 
 async function workbook({ worksheet, sharedStrings }) {
   const archive = new JSZip();
@@ -17,6 +17,37 @@ async function workbook({ worksheet, sharedStrings }) {
   archive.file("xl/worksheets/sheet1.xml", worksheet);
   return archive.generateAsync({ type: "nodebuffer" });
 }
+
+test("sends tutor questions to Ollama with only the supplied unrevealed card context", async () => {
+  const originalFetch = globalThis.fetch;
+  let request;
+  globalThis.fetch = async (url, options) => {
+    request = { url, body: JSON.parse(options.body) };
+    return {
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: "Think about the molecule's role." } }] }),
+    };
+  };
+
+  try {
+    const answer = await answerTutorQuestion("What does store mean?", {
+      question: "What does ATP store?",
+      answerRevealed: false,
+    });
+
+    assert.equal(answer, "Think about the molecule's role.");
+    assert.match(request.url, /\/chat\/completions$/);
+    const systemPrompt = request.body.messages.find((message) => message.role === "system").content;
+    const userPayload = JSON.parse(request.body.messages.find((message) => message.role === "user").content);
+    assert.match(systemPrompt, /do not state or directly give the expected answer/i);
+    assert.deepEqual(userPayload, {
+      question: "What does store mean?",
+      studyContext: { question: "What does ATP store?", answerRevealed: false },
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
 
 test("imports shared-string workbook questions, answers, and extra notes", async () => {
   const buffer = await workbook({
